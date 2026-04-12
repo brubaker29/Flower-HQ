@@ -89,17 +89,23 @@ npm run db:migrate:local    # apply migrations to local D1
 npm run typecheck
 ```
 
-First-time Cloudflare setup (see `docs/runbook.md` for full steps):
+## Deploying
+Deploys are fully driven by GitHub Actions
+(`.github/workflows/deploy.yml`). Pushing to `main` runs any pending D1
+migrations against the remote database and then deploys the Worker.
+Pull requests run a validation build (typecheck + build) but do not
+touch Cloudflare. Don't run `wrangler deploy` by hand in normal flow.
+
+First-time Cloudflare setup (once, see `docs/runbook.md` §1–§3):
 ```bash
 npx wrangler d1 create flower_hq_db          # paste id into wrangler.jsonc
 npx wrangler r2 bucket create flower-hq-files
-npm run db:migrate:remote
-npm run deploy
 ```
-
-Then in the Cloudflare dashboard: add an Access application targeting the
-Worker's hostname, restrict to your Google Workspace, and set the
-`CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` secrets on the Worker.
+Then in GitHub set repo secrets `CLOUDFLARE_API_TOKEN` and
+`CLOUDFLARE_ACCOUNT_ID`, and in the Cloudflare dashboard add an Access
+application targeting the Worker's hostname, restrict to your Google
+Workspace, and set the `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD`
+secrets on the Worker.
 
 ## Adding a new sub-app
 1. Add a layout route at `app/routes/<name>.tsx` and call `requireUser` in

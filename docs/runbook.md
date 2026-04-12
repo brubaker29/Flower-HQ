@@ -4,33 +4,67 @@ How to go from an empty Cloudflare account to a deployed, Access-protected
 Flower HQ. Follow the steps in order the first time; later sections are
 reference.
 
+Deploys are driven by GitHub Actions — see
+`.github/workflows/deploy.yml`. Every push to `main` runs pending D1
+migrations and deploys the Worker. Pull requests run a validation build
+but don't touch Cloudflare.
+
 ## 1. One-time Cloudflare setup
+
+You only need to run these CLI commands once. After that, `git push` is
+the only thing that deploys.
 
 ### Create the D1 database
 ```bash
 npx wrangler d1 create flower_hq_db
 ```
 Copy the `database_id` from the output into `wrangler.jsonc` (replace
-`REPLACE_WITH_D1_ID`).
+`REPLACE_WITH_D1_ID`) and commit the change.
 
 ### Create the R2 bucket
 ```bash
 npx wrangler r2 bucket create flower-hq-files
 ```
 
-### Apply the initial migration locally and remotely
+### Apply the initial migration locally (for dev)
 ```bash
 npm run db:migrate:local
-npm run db:migrate:remote
 ```
+The remote migration will run automatically on the first push to `main`
+via the GitHub Actions workflow — you don't have to run
+`db:migrate:remote` by hand.
+
+## 2. Wire up GitHub → Cloudflare
+
+### Create a Cloudflare API token
+1. In the Cloudflare dashboard go to **My Profile → API Tokens → Create
+   Token**.
+2. Use the "Edit Cloudflare Workers" template, or create a custom token
+   with these permissions:
+   - Account → Workers Scripts → Edit
+   - Account → D1 → Edit
+   - Account → Workers R2 Storage → Edit
+3. Save the token value (you'll only see it once).
+
+### Find your Cloudflare account ID
+Dashboard home page → right sidebar → "Account ID".
+
+### Add repo secrets on GitHub
+In `github.com/brubaker29/flower-hq` → **Settings → Secrets and
+variables → Actions → New repository secret**:
+- `CLOUDFLARE_API_TOKEN` = the token from above
+- `CLOUDFLARE_ACCOUNT_ID` = your account id
 
 ### First deploy
-```bash
-npm run deploy
-```
-Note the `*.workers.dev` URL that gets printed.
+Push a commit to `main` (or merge a PR into `main`). The workflow will:
+1. Install dependencies, typecheck, and build.
+2. Apply any pending D1 migrations against the remote database.
+3. Deploy the Worker.
 
-## 2. Protect the Worker with Cloudflare Access
+Check the run under the **Actions** tab. On success the workflow logs
+will include the `*.workers.dev` URL the Worker was deployed to.
+
+## 3. Protect the Worker with Cloudflare Access
 
 1. In the Cloudflare dashboard, go to **Zero Trust → Access → Applications
    → Add an application → Self-hosted**.
@@ -54,18 +88,15 @@ npx wrangler secret put CF_ACCESS_AUD
 # paste: the AUD tag from step 5
 ```
 
-Redeploy so the Worker picks up the secrets:
-```bash
-npm run deploy
-```
+The Worker picks up the secrets immediately — no redeploy needed.
 
-## 3. Adding a user
+## 4. Adding a user
 - **Zero Trust → Access → Applications → Flower HQ → Policies**, edit the
   Include rule and add the email.
 - The next time that user visits, they'll be challenged by Google SSO. On
   success, `auth.server.ts` upserts a row into the `users` table.
 
-## 4. Local development
+## 5. Local development
 ```bash
 npm install
 npm run dev
@@ -75,15 +106,16 @@ npm run dev
 - Local D1 lives under `.wrangler/state/v3/d1`. `npm run db:migrate:local`
   applies migrations against it.
 
-## 5. Schema changes
+## 6. Schema changes
 ```bash
 # 1. Edit app/db/schema.ts
 npm run db:generate       # creates app/db/migrations/NNNN_<name>.sql
 # 2. Review the generated SQL
 npm run db:migrate:local  # test locally
-npm run db:migrate:remote # apply to prod D1
-npm run deploy            # ship the code that depends on it
+# 3. Commit the migration file and push
 ```
+The GitHub Actions workflow will apply the migration against the remote
+D1 and deploy the Worker. No manual remote migrate step.
 
 ## Troubleshooting
 
