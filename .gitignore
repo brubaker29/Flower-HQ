@@ -1,0 +1,22 @@
+node_modules
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# build artifacts
+build
+dist
+.cache
+
+# wrangler / cloudflare
+.wrangler
+.dev.vars
+.mf
+
+# drizzle
+drizzle/out
+
+# editor
+.vscode
+.idea

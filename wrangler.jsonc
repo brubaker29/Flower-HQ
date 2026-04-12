@@ -1,0 +1,34 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "flower-hq",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "./workers/app.ts",
+  "vars": {
+    "ENV": "production"
+    // Set via `wrangler secret put` or dashboard:
+    //   CF_ACCESS_TEAM_DOMAIN  e.g. "yourteam.cloudflareaccess.com"
+    //   CF_ACCESS_AUD          the Application Audience (AUD) tag from Access
+  },
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./build/client"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "flower_hq_db",
+      "database_id": "REPLACE_WITH_D1_ID",
+      "migrations_dir": "./app/db/migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "flower-hq-files"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
