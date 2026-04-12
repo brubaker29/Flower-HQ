@@ -35,7 +35,7 @@
     "typescript": "^5.7.2",
     "vite": "^6.0.7",
     "vite-tsconfig-paths": "^5.1.4",
-    "wrangler": "^3.99.0"
+    "wrangler": "^4.20.0"
   },
   "engines": {
     "node": ">=20"
