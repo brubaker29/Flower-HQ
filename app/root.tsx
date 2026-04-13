@@ -17,6 +17,12 @@ export const links: LinksFunction = () => [
     rel: "stylesheet",
     href: "https://rsms.me/inter/inter.css",
   },
+  // Tiny inline favicon so the browser stops asking for /favicon.ico and
+  // triggering a "No route matches" log on every request.
+  {
+    rel: "icon",
+    href: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%23db2777'/%3E%3C/svg%3E",
+  },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
