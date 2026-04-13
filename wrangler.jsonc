@@ -15,7 +15,7 @@
     {
       "binding": "DB",
       "database_name": "flower_hq_db",
-      "database_id": "REPLACE_WITH_D1_ID",
+      "database_id": "79a0712e-7e96-4c8e-b229-9f83b70e28c1",
       "migrations_dir": "./app/db/migrations"
     }
   ],
