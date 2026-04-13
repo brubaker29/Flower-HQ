@@ -11,12 +11,21 @@ export default defineConfig({
     reactRouter(),
     tsconfigPaths(),
   ],
-  // Force a single copy of react / react-router in both the client and
-  // SSR bundles. Without dedupe, Vite's SSR dep optimizer can end up
-  // loading two instances of react-router in workerd, which makes
-  // `<Meta />` and friends throw "must render inside <HydratedRouter>"
-  // because the provider and consumer come from different modules.
   resolve: {
     dedupe: ["react", "react-dom", "react-router"],
+  },
+  // Keep react-router out of Vite's SSR dep pre-bundler so there's
+  // never a separate `deps_ssr/react-router.js` copy that could double
+  // up with the bundled one.
+  optimizeDeps: {
+    exclude: ["react-router", "react-router/dom"],
+  },
+  // For a Workers target, everything has to be bundled into the
+  // output anyway — workerd can't `require()` from node_modules.
+  // `noExternal: true` forces Vite to inline every dep into the SSR
+  // bundle, which eliminates the last place a duplicate react-router
+  // instance could sneak in.
+  ssr: {
+    noExternal: true,
   },
 });
