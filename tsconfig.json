@@ -11,11 +11,7 @@
   ],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "types": [
-      "@cloudflare/workers-types",
-      "@react-router/node",
-      "vite/client"
-    ],
+    "types": ["@cloudflare/workers-types", "vite/client"],
     "target": "ES2022",
     "module": "ES2022",
     "moduleResolution": "Bundler",
