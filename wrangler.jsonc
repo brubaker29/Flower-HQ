@@ -4,12 +4,9 @@
   "compatibility_date": "2025-01-01",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./workers/app.ts",
-  "vars": {
-    "ENV": "production"
-    // Set via `wrangler secret put` or dashboard:
-    //   CF_ACCESS_TEAM_DOMAIN  e.g. "yourteam.cloudflareaccess.com"
-    //   CF_ACCESS_AUD          the Application Audience (AUD) tag from Access
-  },
+  // Secrets (set via `wrangler secret put` or the dashboard):
+  //   CF_ACCESS_TEAM_DOMAIN  e.g. "yourteam.cloudflareaccess.com"
+  //   CF_ACCESS_AUD          the Application Audience (AUD) tag from Access
   "assets": {
     "binding": "ASSETS",
     "directory": "./build/client"

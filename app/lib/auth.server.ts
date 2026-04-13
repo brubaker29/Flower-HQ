@@ -69,7 +69,10 @@ async function upsertUser(
  * corresponding `users` row (creating one on first sight).
  *
  * In development we bypass Access entirely and use a synthetic user so the
- * app is usable via `npm run dev` without a tunnel.
+ * app is usable via `npm run dev` without a tunnel. `import.meta.env.DEV`
+ * is statically replaced by Vite at build time: `true` during `npm run
+ * dev`, `false` after `npm run build`, so the bypass cannot leak into a
+ * production deploy.
  */
 export async function requireUser(
   request: Request,
@@ -77,7 +80,7 @@ export async function requireUser(
 ): Promise<SessionUser> {
   const db = getDb(env);
 
-  if (env.ENV !== "production") {
+  if (import.meta.env.DEV) {
     return upsertUser(db, "dev@local", "Local Dev");
   }
 
