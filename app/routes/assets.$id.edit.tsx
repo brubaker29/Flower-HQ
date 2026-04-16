@@ -6,13 +6,29 @@ import { requireUser } from "~/lib/auth.server";
 import { getDb } from "~/lib/db.server";
 import { assets, assetKinds } from "~/db/schema";
 import { centsToInput, inputToCents } from "~/lib/money";
+import { validateVin } from "~/lib/vin";
 import { Button, Field, Input, Select, Textarea } from "~/components/ui";
+
+const vinField = z
+  .string()
+  .nullable()
+  .optional()
+  .superRefine((val, ctx) => {
+    const result = validateVin(val ?? null);
+    if (!result.ok) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: result.error ?? "Invalid VIN",
+      });
+    }
+  })
+  .transform((v) => (v ? validateVin(v).normalized : null));
 
 const AssetSchema = z.object({
   kind: z.enum(assetKinds),
   name: z.string().min(1, "Required").max(120),
   plate: z.string().max(40).optional().nullable(),
-  vin: z.string().max(40).optional().nullable(),
+  vin: vinField,
   make: z.string().max(80).optional().nullable(),
   model: z.string().max(80).optional().nullable(),
   year: z.coerce.number().int().min(1900).max(2100).optional().nullable(),
@@ -93,8 +109,17 @@ export default function EditAsset({
             defaultValue={asset.plate ?? asset.identifier ?? ""}
           />
         </Field>
-        <Field label="VIN" error={errors?.vin?.[0]}>
-          <Input name="vin" defaultValue={asset.vin ?? ""} />
+        <Field
+          label="VIN"
+          hint="17 chars, no I/O/Q"
+          error={errors?.vin?.[0]}
+        >
+          <Input
+            name="vin"
+            defaultValue={asset.vin ?? ""}
+            maxLength={17}
+            style={{ textTransform: "uppercase" }}
+          />
         </Field>
         <Field label="Make" error={errors?.make?.[0]}>
           <Input name="make" defaultValue={asset.make ?? ""} />
