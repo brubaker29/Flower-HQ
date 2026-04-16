@@ -1,5 +1,4 @@
 import { createRequestHandler } from "react-router";
-// @ts-expect-error - virtual module provided by React Router at build time
 import * as build from "virtual:react-router/server-build";
 
 declare module "react-router" {
