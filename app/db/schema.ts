@@ -107,6 +107,40 @@ export const maintenanceRecords = sqliteTable(
   }),
 );
 
+/**
+ * Periodic odometer readings per asset. Drives monthly-usage stats and
+ * a usage log on the asset detail page. Rows can come from three
+ * sources:
+ *   - "manual"   — user typed it in from a "Log reading" form
+ *   - "service"  — auto-inserted when a maintenance record has mileage
+ *   - "imported" — backfilled from a spreadsheet / prior system
+ */
+export const mileageReadings = sqliteTable(
+  "mileage_readings",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    assetId: integer("asset_id")
+      .notNull()
+      .references(() => assets.id, { onDelete: "cascade" }),
+    readOn: text("read_on").notNull(),
+    mileage: integer("mileage").notNull(),
+    source: text("source", {
+      enum: ["manual", "service", "imported"],
+    })
+      .notNull()
+      .default("manual"),
+    note: text("note"),
+    createdBy: integer("created_by").references(() => users.id),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (t) => ({
+    assetIdx: index("mileage_readings_asset_idx").on(t.assetId),
+    dateIdx: index("mileage_readings_date_idx").on(t.assetId, t.readOn),
+  }),
+);
+
 // ---------- Facilities Maintenance ----------
 
 export const locations = sqliteTable("locations", {

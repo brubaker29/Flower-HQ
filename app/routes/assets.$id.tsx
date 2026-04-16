@@ -5,6 +5,7 @@ import { requireUser } from "~/lib/auth.server";
 import { getDb } from "~/lib/db.server";
 import { assets, attachments, maintenanceRecords, vendors } from "~/db/schema";
 import { formatMoney } from "~/lib/money";
+import { avgMilesPerMonth, listReadings } from "~/lib/mileage";
 import { Badge, LinkButton, PageHeader } from "~/components/ui";
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
@@ -45,7 +46,13 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     )
     .orderBy(desc(attachments.createdAt));
 
-  return { asset, records, files };
+  const readings = await listReadings(db, id);
+  const [avg3, avg12] = await Promise.all([
+    avgMilesPerMonth(db, id, 90),
+    avgMilesPerMonth(db, id, 365),
+  ]);
+
+  return { asset, records, files, readings, avg3, avg12 };
 }
 
 function statusTone(status: string) {
@@ -55,7 +62,7 @@ function statusTone(status: string) {
 }
 
 export default function AssetDetail({ loaderData }: Route.ComponentProps) {
-  const { asset, records, files } = loaderData;
+  const { asset, records, files, readings, avg3, avg12 } = loaderData;
   return (
     <div className="space-y-8">
       <PageHeader
@@ -82,6 +89,12 @@ export default function AssetDetail({ loaderData }: Route.ComponentProps) {
                 href={`/assets/${asset.id}/sell`}
               >
                 Mark sold
+              </LinkButton>
+              <LinkButton
+                variant="secondary"
+                href={`/assets/${asset.id}/readings/new`}
+              >
+                Log reading
               </LinkButton>
               <LinkButton href={`/assets/${asset.id}/maintenance/new`}>
                 Log maintenance
@@ -120,6 +133,73 @@ export default function AssetDetail({ loaderData }: Route.ComponentProps) {
           <p className="mt-4 whitespace-pre-wrap text-sm text-neutral-700">
             {asset.notes}
           </p>
+        )}
+      </section>
+
+      <section>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Mileage</h2>
+          {asset.status === "active" && (
+            <LinkButton
+              variant="secondary"
+              href={`/assets/${asset.id}/readings/new`}
+            >
+              + Log reading
+            </LinkButton>
+          )}
+        </div>
+        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <UsageStat
+            label="Avg / month (3 mo)"
+            value={avg3 != null ? `${avg3.toLocaleString()} mi` : "—"}
+          />
+          <UsageStat
+            label="Avg / month (12 mo)"
+            value={avg12 != null ? `${avg12.toLocaleString()} mi` : "—"}
+          />
+          <UsageStat
+            label="Total readings"
+            value={readings.length.toString()}
+          />
+        </div>
+        {readings.length === 0 ? (
+          <div className="mt-3 rounded-lg border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-neutral-600">
+            No mileage readings yet. Log one to start tracking usage.
+          </div>
+        ) : (
+          <div className="mt-3 overflow-hidden rounded-lg border border-neutral-200 bg-white">
+            <table className="min-w-full divide-y divide-neutral-200 text-sm">
+              <thead className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                <tr>
+                  <th className="px-4 py-2">Date</th>
+                  <th className="px-4 py-2">Mileage</th>
+                  <th className="px-4 py-2">Source</th>
+                  <th className="px-4 py-2">Note</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {readings.slice(0, 20).map((r) => (
+                  <tr key={r.id}>
+                    <td className="px-4 py-2">{r.readOn}</td>
+                    <td className="px-4 py-2 font-medium">
+                      {r.mileage.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2 text-neutral-600 capitalize">
+                      {r.source}
+                    </td>
+                    <td className="px-4 py-2 text-neutral-600">
+                      {r.note ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {readings.length > 20 && (
+              <div className="border-t border-neutral-100 px-4 py-2 text-xs text-neutral-500">
+                Showing 20 most recent of {readings.length} readings.
+              </div>
+            )}
+          </div>
         )}
       </section>
 
@@ -225,6 +305,17 @@ function InfoRow({ label, value }: { label: string; value: string | null }) {
         {label}
       </dt>
       <dd className="mt-0.5 text-neutral-900">{value ?? "—"}</dd>
+    </div>
+  );
+}
+
+function UsageStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-neutral-200 bg-white p-4">
+      <div className="text-xs uppercase tracking-wide text-neutral-500">
+        {label}
+      </div>
+      <div className="mt-1 text-xl font-semibold text-neutral-900">{value}</div>
     </div>
   );
 }

@@ -4,7 +4,12 @@ import { z } from "zod";
 import type { Route } from "./+types/assets.$id.maintenance.new";
 import { requireUser } from "~/lib/auth.server";
 import { getDb } from "~/lib/db.server";
-import { assets, maintenanceRecords, vendors } from "~/db/schema";
+import {
+  assets,
+  maintenanceRecords,
+  mileageReadings,
+  vendors,
+} from "~/db/schema";
 import { inputToCents } from "~/lib/money";
 import { MAINTENANCE_CATEGORIES } from "~/lib/maintenance-categories";
 import { saveAttachment } from "~/lib/attachments.server";
@@ -95,9 +100,18 @@ export async function action({ request, context, params }: Route.ActionArgs) {
     })
     .returning({ id: maintenanceRecords.id });
 
-  // Bump the asset's current mileage if the service mileage is higher
-  // (common case: log an oil change and update the odometer at once).
+  // Record a mileage reading tied to this service so the monthly
+  // average picks it up. Also bump the asset's cached current mileage
+  // if this reading is higher than what we had.
   if (parsed.data.mileageAtService != null) {
+    await db.insert(mileageReadings).values({
+      assetId: id,
+      readOn: parsed.data.performedAt,
+      mileage: parsed.data.mileageAtService,
+      source: "service",
+      createdBy: user.id,
+    });
+
     const [asset] = await db.select().from(assets).where(eq(assets.id, id));
     if (
       asset &&

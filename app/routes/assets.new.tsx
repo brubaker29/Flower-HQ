@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Route } from "./+types/assets.new";
 import { requireUser } from "~/lib/auth.server";
 import { getDb } from "~/lib/db.server";
-import { assets, assetKinds } from "~/db/schema";
+import { assets, assetKinds, mileageReadings } from "~/db/schema";
 import { inputToCents } from "~/lib/money";
 import { Button, Field, Input, Select, Textarea } from "~/components/ui";
 
@@ -20,7 +20,7 @@ const AssetSchema = z.object({
 });
 
 export async function action({ request, context }: Route.ActionArgs) {
-  await requireUser(request, context.cloudflare.env);
+  const user = await requireUser(request, context.cloudflare.env);
   const form = await request.formData();
   const parsed = AssetSchema.safeParse({
     kind: form.get("kind"),
@@ -45,6 +45,21 @@ export async function action({ request, context }: Route.ActionArgs) {
       purchasePriceCents: inputToCents(form.get("purchasePrice")),
     })
     .returning({ id: assets.id });
+
+  // Seed a mileage reading if the user entered a starting odometer.
+  // Dated to today (so the "usage window" starts from when the asset
+  // enters the system, not its purchase date — you can backfill
+  // earlier readings via the Log reading form).
+  if (parsed.data.currentMileage != null) {
+    await db.insert(mileageReadings).values({
+      assetId: inserted.id,
+      readOn: new Date().toISOString().slice(0, 10),
+      mileage: parsed.data.currentMileage,
+      source: "manual",
+      createdBy: user.id,
+    });
+  }
+
   return redirect(`/assets/${inserted.id}`);
 }
 
