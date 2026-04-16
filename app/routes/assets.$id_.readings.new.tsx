@@ -1,7 +1,7 @@
 import { Form, redirect } from "react-router";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import type { Route } from "./+types/assets.$id.readings.new";
+import type { Route } from "./+types/assets.$id_.readings.new";
 import { requireUser } from "~/lib/auth.server";
 import { getDb } from "~/lib/db.server";
 import { assets, mileageReadings } from "~/db/schema";
