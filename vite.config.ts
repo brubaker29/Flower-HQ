@@ -1,26 +1,21 @@
+import { cloudflareDevProxy } from "@react-router/dev/vite/cloudflare";
 import { reactRouter } from "@react-router/dev/vite";
-import { cloudflare } from "@cloudflare/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   plugins: [
-    cloudflare(),
-    tailwindcss(),
+    // In dev: runs Miniflare alongside Vite so loaders/actions get real
+    // CF bindings (env.DB, env.FILES). Reads bindings from wrangler.jsonc.
+    // Does NOT affect the production build.
+    cloudflareDevProxy({
+      getLoadContext({ context }) {
+        return { cloudflare: context.cloudflare };
+      },
+    }),
     reactRouter(),
+    tailwindcss(),
     tsconfigPaths(),
   ],
-  resolve: {
-    dedupe: ["react", "react-dom", "react-router"],
-  },
-  // workerd can't import anything external at runtime — everything has
-  // to be in the bundle. `noExternal: true` also collapses what would
-  // otherwise be two react-router instances (one from Vite's SSR dep
-  // optimizer, one from the real module graph) into a single copy,
-  // which fixes the <Meta /> "must render inside <HydratedRouter>"
-  // context mismatch.
-  ssr: {
-    noExternal: true,
-  },
 });

@@ -1,5 +1,7 @@
 import { createRequestHandler } from "react-router";
-import * as build from "virtual:react-router/server-build";
+// In production (wrangler deploy), this resolves to the real built file.
+// In dev (vite dev), the react-router plugin intercepts the import.
+import * as build from "../dist/server/index.js";
 
 declare module "react-router" {
   export interface AppLoadContext {
@@ -10,7 +12,7 @@ declare module "react-router" {
   }
 }
 
-const handler = createRequestHandler(build, import.meta.env.MODE);
+const handler = createRequestHandler(build, "production");
 
 export default {
   async fetch(request, env, ctx) {

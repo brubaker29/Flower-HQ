@@ -9,7 +9,7 @@
   //   CF_ACCESS_AUD          the Application Audience (AUD) tag from Access
   "assets": {
     "binding": "ASSETS",
-    "directory": "./build/client"
+    "directory": "./dist/client"
   },
   "d1_databases": [
     {
