@@ -1,50 +1,113 @@
+import { desc, eq } from "drizzle-orm";
+import type { DB } from "./db.server";
+import { assets, maintenanceRecords } from "~/db/schema";
+
 /**
- * Shared "due soon" logic used by the top-level dashboard and both sub-app
- * indexes. Pure functions — no DB access — so they're easy to unit test.
+ * Shared "due soon" logic. Kept as pure functions where possible so
+ * the thresholds are obvious and unit-testable.
  */
 
-export interface DueItem {
-  kind: "asset_service" | "work_order";
-  id: number;
-  title: string;
-  subtitle: string;
-  /** ISO date string or null if mileage-based only. */
-  dueDate: string | null;
-  /** Number of days until due. Negative if overdue. Null if unknown. */
-  daysUntil: number | null;
-  overdue: boolean;
-}
+export const DUE_WARN_DAYS = 14;
+export const DUE_WARN_MILES = 500;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export function daysBetween(from: Date, to: Date): number {
-  const a = Date.UTC(from.getFullYear(), from.getMonth(), from.getDate());
-  const b = Date.UTC(to.getFullYear(), to.getMonth(), to.getDate());
-  return Math.round((b - a) / DAY_MS);
+export interface DueItem {
+  kind: "asset_service";
+  assetId: number;
+  assetName: string;
+  label: string;
+  reason: string;
+  overdue: boolean;
+  daysUntil: number | null;
+  milesUntil: number | null;
 }
 
-export function isMileageDue(
-  current: number | null,
-  nextDue: number | null,
-  warnMiles = 500,
-): boolean {
-  if (current == null || nextDue == null) return false;
-  return current >= nextDue - warnMiles;
+function daysBetween(fromIso: string, nowIso: string): number {
+  const a = new Date(fromIso);
+  const b = new Date(nowIso);
+  return Math.round((b.getTime() - a.getTime()) / DAY_MS);
 }
 
-export function isDateDue(
-  nextDue: string | null,
+/**
+ * For every asset, find its most recent maintenance record and check
+ * whether its `next_due_date` or `next_due_mileage` is within the
+ * warning window. Returns items sorted overdue-first, then soonest.
+ */
+export async function getDueSoonAssets(
+  db: DB,
   now: Date = new Date(),
-  warnDays = 14,
-): boolean {
-  if (!nextDue) return false;
-  const due = new Date(nextDue);
-  if (Number.isNaN(due.getTime())) return false;
-  return daysBetween(now, due) <= warnDays;
-}
+): Promise<DueItem[]> {
+  const activeAssets = await db
+    .select()
+    .from(assets)
+    .where(eq(assets.status, "active"));
 
-export function sortByUrgency(items: DueItem[]): DueItem[] {
-  return [...items].sort((a, b) => {
+  const items: DueItem[] = [];
+  const nowIso = now.toISOString();
+
+  for (const asset of activeAssets) {
+    const latest = await db
+      .select()
+      .from(maintenanceRecords)
+      .where(eq(maintenanceRecords.assetId, asset.id))
+      .orderBy(desc(maintenanceRecords.performedAt))
+      .limit(1);
+
+    if (latest.length === 0) continue;
+    const rec = latest[0];
+
+    let daysUntil: number | null = null;
+    let overdue = false;
+    let dateTriggered = false;
+    if (rec.nextDueDate) {
+      const days = daysBetween(nowIso, rec.nextDueDate);
+      daysUntil = days;
+      if (days <= DUE_WARN_DAYS) dateTriggered = true;
+      if (days < 0) overdue = true;
+    }
+
+    let milesUntil: number | null = null;
+    let mileageTriggered = false;
+    if (rec.nextDueMileage != null && asset.currentMileage != null) {
+      milesUntil = rec.nextDueMileage - asset.currentMileage;
+      if (milesUntil <= DUE_WARN_MILES) mileageTriggered = true;
+      if (milesUntil < 0) overdue = true;
+    }
+
+    if (!dateTriggered && !mileageTriggered) continue;
+
+    const reasons: string[] = [];
+    if (dateTriggered && daysUntil != null) {
+      reasons.push(
+        daysUntil < 0
+          ? `overdue by ${Math.abs(daysUntil)}d`
+          : daysUntil === 0
+            ? "due today"
+            : `in ${daysUntil}d`,
+      );
+    }
+    if (mileageTriggered && milesUntil != null) {
+      reasons.push(
+        milesUntil < 0
+          ? `${Math.abs(milesUntil)} mi over`
+          : `${milesUntil} mi left`,
+      );
+    }
+
+    items.push({
+      kind: "asset_service",
+      assetId: asset.id,
+      assetName: asset.name,
+      label: rec.category ?? "Service",
+      reason: reasons.join(" · "),
+      overdue,
+      daysUntil,
+      milesUntil,
+    });
+  }
+
+  return items.sort((a, b) => {
     if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
     const ad = a.daysUntil ?? Number.POSITIVE_INFINITY;
     const bd = b.daysUntil ?? Number.POSITIVE_INFINITY;
