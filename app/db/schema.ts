@@ -56,7 +56,13 @@ export const attachments = sqliteTable(
 
 // ---------- Asset Tracking ----------
 
-export const assetKinds = ["van", "trailer", "equipment", "other"] as const;
+export const assetKinds = [
+  "van",
+  "truck",
+  "trailer",
+  "equipment",
+  "other",
+] as const;
 export const assetStatuses = ["active", "sold", "retired"] as const;
 
 export const assets = sqliteTable("assets", {
