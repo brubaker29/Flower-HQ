@@ -4,6 +4,7 @@ import type { Route } from "./+types/facilities.locations.$id";
 import { requireUser } from "~/lib/auth.server";
 import { getDb } from "~/lib/db.server";
 import {
+  assets,
   facilityAssets,
   locations,
   vendors,
@@ -18,7 +19,6 @@ import {
   type WorkOrderStatus,
 } from "~/lib/work-orders";
 import { Badge, LinkButton, PageHeader } from "~/components/ui";
-import { formatMoney } from "~/lib/money";
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
   await requireUser(request, context.cloudflare.env);
@@ -29,7 +29,13 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const [loc] = await db.select().from(locations).where(eq(locations.id, id));
   if (!loc) throw new Response("Not found", { status: 404 });
 
-  const assets = await db
+  const vans = await db
+    .select()
+    .from(assets)
+    .where(eq(assets.locationId, id))
+    .orderBy(assets.name);
+
+  const equipment = await db
     .select()
     .from(facilityAssets)
     .where(eq(facilityAssets.locationId, id))
@@ -54,18 +60,31 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
     )
     .orderBy(desc(workOrders.createdAt));
 
-  return { location: loc, assets, openWOs };
+  return { location: loc, vans, equipment, openWOs };
 }
 
 export default function LocationDetail({ loaderData }: Route.ComponentProps) {
-  const { location, assets, openWOs } = loaderData;
+  const { location, vans, equipment, openWOs } = loaderData;
+  const subtitle = [
+    location.storeNumber ? `#${location.storeNumber}` : null,
+    location.address,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <div className="space-y-8">
       <PageHeader
         title={location.name}
-        subtitle={location.address ?? undefined}
+        subtitle={subtitle || undefined}
         actions={
           <>
+            <LinkButton
+              variant="secondary"
+              href={`${location.id}/edit`}
+            >
+              Edit
+            </LinkButton>
             <LinkButton
               variant="secondary"
               href={`${location.id}/assets/new`}
@@ -81,12 +100,13 @@ export default function LocationDetail({ loaderData }: Route.ComponentProps) {
         }
       />
 
+      {/* Open work orders */}
       <section>
-        <h2 className="text-lg font-semibold">Open work orders ({openWOs.length})</h2>
+        <h2 className="text-lg font-semibold">
+          Open work orders ({openWOs.length})
+        </h2>
         {openWOs.length === 0 ? (
-          <div className="mt-3 rounded-lg border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-neutral-600">
-            Nothing open.
-          </div>
+          <Empty>Nothing open at this location.</Empty>
         ) : (
           <ul className="mt-3 divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white">
             {openWOs.map((wo) => (
@@ -124,13 +144,60 @@ export default function LocationDetail({ loaderData }: Route.ComponentProps) {
         )}
       </section>
 
+      {/* Vans at this location */}
       <section>
-        <h2 className="text-lg font-semibold">Equipment ({assets.length})</h2>
-        {assets.length === 0 ? (
-          <div className="mt-3 rounded-lg border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-neutral-600">
-            No HVAC / plumbing / etc. tracked here yet. Add some so work
-            orders can reference specific units.
+        <h2 className="text-lg font-semibold">Vans ({vans.length})</h2>
+        {vans.length === 0 ? (
+          <Empty>
+            No vehicles assigned to this location. Edit a van and set its
+            location to see it here.
+          </Empty>
+        ) : (
+          <div className="mt-3 overflow-hidden rounded-lg border border-neutral-200 bg-white">
+            <table className="min-w-full divide-y divide-neutral-200 text-sm">
+              <thead className="bg-neutral-50 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                <tr>
+                  <th className="px-4 py-2">Name</th>
+                  <th className="px-4 py-2">Model</th>
+                  <th className="px-4 py-2">Plate</th>
+                  <th className="px-4 py-2">Mileage</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {vans.map((v) => (
+                  <tr key={v.id} className="hover:bg-neutral-50">
+                    <td className="px-4 py-2 font-medium">
+                      <Link
+                        to={`/assets/${v.id}`}
+                        className="text-neutral-900 hover:underline"
+                      >
+                        {v.name}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2 text-neutral-700">
+                      {[v.year, v.make, v.model].filter(Boolean).join(" ")}
+                    </td>
+                    <td className="px-4 py-2 text-neutral-700">
+                      {v.plate ?? v.identifier ?? "—"}
+                    </td>
+                    <td className="px-4 py-2 text-neutral-700">
+                      {v.currentMileage != null
+                        ? v.currentMileage.toLocaleString()
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+        )}
+      </section>
+
+      {/* Facility equipment */}
+      <section>
+        <h2 className="text-lg font-semibold">Equipment ({equipment.length})</h2>
+        {equipment.length === 0 ? (
+          <Empty>No HVAC / plumbing / etc. tracked here yet.</Empty>
         ) : (
           <div className="mt-3 overflow-hidden rounded-lg border border-neutral-200 bg-white">
             <table className="min-w-full divide-y divide-neutral-200 text-sm">
@@ -144,7 +211,7 @@ export default function LocationDetail({ loaderData }: Route.ComponentProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
-                {assets.map((a) => (
+                {equipment.map((a) => (
                   <tr key={a.id}>
                     <td className="px-4 py-2 font-medium">{a.name}</td>
                     <td className="px-4 py-2 capitalize text-neutral-700">
@@ -166,6 +233,25 @@ export default function LocationDetail({ loaderData }: Route.ComponentProps) {
           </div>
         )}
       </section>
+
+      {location.notes && (
+        <section className="rounded-lg border border-neutral-200 bg-white p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-500">
+            Notes
+          </h2>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-700">
+            {location.notes}
+          </p>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mt-3 rounded-lg border border-dashed border-neutral-300 bg-white p-6 text-center text-sm text-neutral-600">
+      {children}
     </div>
   );
 }

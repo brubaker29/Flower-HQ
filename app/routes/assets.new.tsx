@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Route } from "./+types/assets.new";
 import { requireUser } from "~/lib/auth.server";
 import { getDb } from "~/lib/db.server";
-import { assets, assetKinds, mileageReadings } from "~/db/schema";
+import { assets, assetKinds, locations, mileageReadings } from "~/db/schema";
 import { inputToCents } from "~/lib/money";
 import { validateVin } from "~/lib/vin";
 import { Button, Field, Input, Select, Textarea } from "~/components/ui";
@@ -26,6 +26,7 @@ const vinField = z
 const AssetSchema = z.object({
   kind: z.enum(assetKinds),
   name: z.string().min(1, "Required").max(120),
+  locationId: z.coerce.number().int().min(1).optional().nullable(),
   plate: z.string().max(40).optional().nullable(),
   vin: vinField,
   make: z.string().max(80).optional().nullable(),
@@ -38,12 +39,20 @@ const AssetSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
+export async function loader({ request, context }: Route.LoaderArgs) {
+  await requireUser(request, context.cloudflare.env);
+  const db = getDb(context.cloudflare.env);
+  const locs = await db.select().from(locations).orderBy(locations.name);
+  return { locations: locs };
+}
+
 export async function action({ request, context }: Route.ActionArgs) {
   const user = await requireUser(request, context.cloudflare.env);
   const form = await request.formData();
   const parsed = AssetSchema.safeParse({
     kind: form.get("kind"),
     name: form.get("name"),
+    locationId: form.get("locationId") || null,
     plate: form.get("plate") || null,
     vin: form.get("vin") || null,
     make: form.get("make") || null,
@@ -81,7 +90,11 @@ export async function action({ request, context }: Route.ActionArgs) {
   return redirect(`/assets/${inserted.id}`);
 }
 
-export default function NewAsset({ actionData }: Route.ComponentProps) {
+export default function NewAsset({
+  loaderData,
+  actionData,
+}: Route.ComponentProps) {
+  const { locations: locs } = loaderData;
   const errors = actionData?.errors;
   return (
     <Form method="post" className="max-w-2xl space-y-6">
@@ -97,6 +110,17 @@ export default function NewAsset({ actionData }: Route.ComponentProps) {
         </Field>
         <Field label="Name" hint="e.g. V-15" error={errors?.name?.[0]}>
           <Input name="name" required />
+        </Field>
+        <Field label="Location" error={errors?.locationId?.[0]}>
+          <Select name="locationId" defaultValue="">
+            <option value="">— None —</option>
+            {locs.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+                {l.storeNumber ? ` (#${l.storeNumber})` : ""}
+              </option>
+            ))}
+          </Select>
         </Field>
         <Field label="Plate" error={errors?.plate?.[0]}>
           <Input name="plate" placeholder="ABC 1234" />

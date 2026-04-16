@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { Route } from "./+types/assets.$id_.edit";
 import { requireUser } from "~/lib/auth.server";
 import { getDb } from "~/lib/db.server";
-import { assets, assetKinds } from "~/db/schema";
+import { assets, assetKinds, locations } from "~/db/schema";
 import { centsToInput, inputToCents } from "~/lib/money";
 import { validateVin } from "~/lib/vin";
 import { Button, Field, Input, Select, Textarea } from "~/components/ui";
@@ -27,6 +27,7 @@ const vinField = z
 const AssetSchema = z.object({
   kind: z.enum(assetKinds),
   name: z.string().min(1, "Required").max(120),
+  locationId: z.coerce.number().int().min(1).optional().nullable(),
   plate: z.string().max(40).optional().nullable(),
   vin: vinField,
   make: z.string().max(80).optional().nullable(),
@@ -46,7 +47,8 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   const db = getDb(context.cloudflare.env);
   const [asset] = await db.select().from(assets).where(eq(assets.id, id));
   if (!asset) throw new Response("Not found", { status: 404 });
-  return { asset };
+  const locs = await db.select().from(locations).orderBy(locations.name);
+  return { asset, locations: locs };
 }
 
 export async function action({ request, context, params }: Route.ActionArgs) {
@@ -56,6 +58,7 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const parsed = AssetSchema.safeParse({
     kind: form.get("kind"),
     name: form.get("name"),
+    locationId: form.get("locationId") || null,
     plate: form.get("plate") || null,
     vin: form.get("vin") || null,
     make: form.get("make") || null,
@@ -86,7 +89,7 @@ export default function EditAsset({
   loaderData,
   actionData,
 }: Route.ComponentProps) {
-  const { asset } = loaderData;
+  const { asset, locations: locs } = loaderData;
   const errors = actionData?.errors;
   return (
     <Form method="post" className="max-w-2xl space-y-6">
@@ -102,6 +105,20 @@ export default function EditAsset({
         </Field>
         <Field label="Name" error={errors?.name?.[0]}>
           <Input name="name" defaultValue={asset.name} required />
+        </Field>
+        <Field label="Location" error={errors?.locationId?.[0]}>
+          <Select
+            name="locationId"
+            defaultValue={asset.locationId ?? ""}
+          >
+            <option value="">— None —</option>
+            {locs.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+                {l.storeNumber ? ` (#${l.storeNumber})` : ""}
+              </option>
+            ))}
+          </Select>
         </Field>
         <Field label="Plate" error={errors?.plate?.[0]}>
           <Input

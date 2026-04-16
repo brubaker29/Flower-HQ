@@ -3,7 +3,13 @@ import { and, desc, eq } from "drizzle-orm";
 import type { Route } from "./+types/assets.$id";
 import { requireUser } from "~/lib/auth.server";
 import { getDb } from "~/lib/db.server";
-import { assets, attachments, maintenanceRecords, vendors } from "~/db/schema";
+import {
+  assets,
+  attachments,
+  locations,
+  maintenanceRecords,
+  vendors,
+} from "~/db/schema";
 import { formatMoney } from "~/lib/money";
 import { avgMilesPerMonth, listReadings } from "~/lib/mileage";
 import { Badge, LinkButton, PageHeader } from "~/components/ui";
@@ -15,8 +21,16 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 
   const db = getDb(context.cloudflare.env);
 
-  const [asset] = await db.select().from(assets).where(eq(assets.id, id));
-  if (!asset) throw new Response("Not found", { status: 404 });
+  const [assetRow] = await db
+    .select({
+      asset: assets,
+      locationName: locations.name,
+    })
+    .from(assets)
+    .leftJoin(locations, eq(locations.id, assets.locationId))
+    .where(eq(assets.id, id));
+  if (!assetRow) throw new Response("Not found", { status: 404 });
+  const asset = { ...assetRow.asset, locationName: assetRow.locationName };
 
   const records = await db
     .select({
@@ -131,6 +145,7 @@ export default function AssetDetail({ loaderData }: Route.ComponentProps) {
           {registrationBadge(asset.registrationExpiresOn)}
         </div>
         <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
+          <InfoRow label="Location" value={asset.locationName} />
           <InfoRow label="Plate" value={asset.plate ?? asset.identifier} />
           <InfoRow label="VIN" value={asset.vin} />
           <InfoRow label="Registered" value={asset.registeredOn} />

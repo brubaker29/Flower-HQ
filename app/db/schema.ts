@@ -63,6 +63,9 @@ export const assets = sqliteTable("assets", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   kind: text("kind", { enum: assetKinds }).notNull(),
   name: text("name").notNull(),
+  locationId: integer("location_id").references(() => locations.id, {
+    onDelete: "set null",
+  }),
   identifier: text("identifier"), // legacy — prefer plate/vin below
   plate: text("plate"),
   vin: text("vin"),
@@ -150,6 +153,7 @@ export const mileageReadings = sqliteTable(
 export const locations = sqliteTable("locations", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
+  storeNumber: text("store_number"),
   address: text("address"),
   notes: text("notes"),
   createdAt: text("created_at")

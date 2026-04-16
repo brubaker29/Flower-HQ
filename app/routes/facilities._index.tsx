@@ -62,8 +62,15 @@ export default function FacilitiesIndex({ loaderData }: Route.ComponentProps) {
               <Badge tone="green">all clear</Badge>
             )}
           </div>
-          {loc.address && (
-            <p className="mt-1 text-sm text-neutral-600">{loc.address}</p>
+          {(loc.storeNumber || loc.address) && (
+            <p className="mt-1 text-sm text-neutral-600">
+              {[
+                loc.storeNumber ? `#${loc.storeNumber}` : null,
+                loc.address,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
           )}
           <div className="mt-3 text-xs uppercase tracking-wide text-neutral-500">
             {loc.assetCount} equipment

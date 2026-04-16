@@ -1,15 +1,29 @@
 import { Link } from "react-router";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { Route } from "./+types/assets._index";
 import { getDb } from "~/lib/db.server";
-import { assets } from "~/db/schema";
+import { assets, locations } from "~/db/schema";
 import { Badge, LinkButton } from "~/components/ui";
 import { getDueSoonAssets } from "~/lib/due";
 import { formatMoney } from "~/lib/money";
 
 export async function loader({ context }: Route.LoaderArgs) {
   const db = getDb(context.cloudflare.env);
-  const rows = await db.select().from(assets).orderBy(desc(assets.createdAt));
+  const rows = await db
+    .select({
+      id: assets.id,
+      kind: assets.kind,
+      name: assets.name,
+      status: assets.status,
+      plate: assets.plate,
+      identifier: assets.identifier,
+      currentMileage: assets.currentMileage,
+      registrationExpiresOn: assets.registrationExpiresOn,
+      locationName: locations.name,
+    })
+    .from(assets)
+    .leftJoin(locations, eq(locations.id, assets.locationId))
+    .orderBy(desc(assets.createdAt));
   const dueSoon = await getDueSoonAssets(db);
   return { assets: rows, dueSoon };
 }
@@ -69,6 +83,7 @@ export default function AssetsIndex({ loaderData }: Route.ComponentProps) {
               <tr>
                 <th className="px-4 py-2">Name</th>
                 <th className="px-4 py-2">Kind</th>
+                <th className="px-4 py-2">Location</th>
                 <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">Plate</th>
                 <th className="px-4 py-2">Mileage</th>
@@ -88,6 +103,9 @@ export default function AssetsIndex({ loaderData }: Route.ComponentProps) {
                   </td>
                   <td className="px-4 py-2 capitalize text-neutral-700">
                     {a.kind}
+                  </td>
+                  <td className="px-4 py-2 text-neutral-700">
+                    {a.locationName ?? "—"}
                   </td>
                   <td className="px-4 py-2">
                     <Badge tone={statusTone(a.status)}>{a.status}</Badge>
