@@ -63,7 +63,9 @@ export const assets = sqliteTable("assets", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   kind: text("kind", { enum: assetKinds }).notNull(),
   name: text("name").notNull(),
-  identifier: text("identifier"), // VIN / serial / plate
+  identifier: text("identifier"), // legacy — prefer plate/vin below
+  plate: text("plate"),
+  vin: text("vin"),
   make: text("make"),
   model: text("model"),
   year: integer("year"),
@@ -73,6 +75,8 @@ export const assets = sqliteTable("assets", {
   saleDate: text("sale_date"),
   salePriceCents: integer("sale_price_cents"),
   currentMileage: integer("current_mileage"),
+  registeredOn: text("registered_on"),
+  registrationExpiresOn: text("registration_expires_on"),
   notes: text("notes"),
   createdAt: text("created_at")
     .notNull()

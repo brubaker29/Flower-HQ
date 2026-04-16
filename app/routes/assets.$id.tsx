@@ -61,6 +61,22 @@ function statusTone(status: string) {
   return "neutral" as const;
 }
 
+function registrationBadge(expiresOn: string | null) {
+  if (!expiresOn) return null;
+  const expires = new Date(expiresOn);
+  const now = new Date();
+  const daysLeft = Math.round(
+    (expires.getTime() - now.getTime()) / (24 * 60 * 60 * 1000),
+  );
+  if (daysLeft < 0) {
+    return <Badge tone="red">registration expired</Badge>;
+  }
+  if (daysLeft <= 30) {
+    return <Badge tone="amber">reg expires in {daysLeft}d</Badge>;
+  }
+  return null;
+}
+
 export default function AssetDetail({ loaderData }: Route.ComponentProps) {
   const { asset, records, files, readings, avg3, avg12 } = loaderData;
   return (
@@ -69,7 +85,7 @@ export default function AssetDetail({ loaderData }: Route.ComponentProps) {
         title={asset.name}
         subtitle={[
           asset.kind,
-          asset.identifier,
+          asset.plate ?? asset.identifier,
           [asset.year, asset.make, asset.model].filter(Boolean).join(" ") ||
             null,
         ]
@@ -112,8 +128,16 @@ export default function AssetDetail({ loaderData }: Route.ComponentProps) {
               {asset.currentMileage.toLocaleString()} mi
             </span>
           )}
+          {registrationBadge(asset.registrationExpiresOn)}
         </div>
         <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
+          <InfoRow label="Plate" value={asset.plate ?? asset.identifier} />
+          <InfoRow label="VIN" value={asset.vin} />
+          <InfoRow label="Registered" value={asset.registeredOn} />
+          <InfoRow
+            label="Reg. expires"
+            value={asset.registrationExpiresOn}
+          />
           <InfoRow label="Purchased" value={asset.purchaseDate} />
           <InfoRow
             label="Purchase price"

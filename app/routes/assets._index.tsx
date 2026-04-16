@@ -70,9 +70,9 @@ export default function AssetsIndex({ loaderData }: Route.ComponentProps) {
                 <th className="px-4 py-2">Name</th>
                 <th className="px-4 py-2">Kind</th>
                 <th className="px-4 py-2">Status</th>
-                <th className="px-4 py-2">Identifier</th>
+                <th className="px-4 py-2">Plate</th>
                 <th className="px-4 py-2">Mileage</th>
-                <th className="px-4 py-2">Purchase price</th>
+                <th className="px-4 py-2">Reg. expires</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -93,7 +93,7 @@ export default function AssetsIndex({ loaderData }: Route.ComponentProps) {
                     <Badge tone={statusTone(a.status)}>{a.status}</Badge>
                   </td>
                   <td className="px-4 py-2 text-neutral-700">
-                    {a.identifier ?? "—"}
+                    {a.plate ?? a.identifier ?? "—"}
                   </td>
                   <td className="px-4 py-2 text-neutral-700">
                     {a.currentMileage != null
@@ -101,7 +101,7 @@ export default function AssetsIndex({ loaderData }: Route.ComponentProps) {
                       : "—"}
                   </td>
                   <td className="px-4 py-2 text-neutral-700">
-                    {formatMoney(a.purchasePriceCents)}
+                    {a.registrationExpiresOn ?? "—"}
                   </td>
                 </tr>
               ))}
