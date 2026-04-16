@@ -9,7 +9,7 @@ export default defineConfig({
     // In dev: runs Miniflare alongside Vite so loaders/actions get real
     // CF bindings (env.DB, env.FILES). Reads bindings from wrangler.jsonc.
     // Does NOT affect the production build.
-    cloudflareDevProxy({
+    cloudflareDevProxy<Env, Record<string, unknown>>({
       getLoadContext({ context }) {
         return { cloudflare: context.cloudflare };
       },
