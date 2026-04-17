@@ -12,6 +12,7 @@ import {
 } from "~/db/schema";
 import { formatMoney } from "~/lib/money";
 import { avgMilesPerMonth, listReadings } from "~/lib/mileage";
+import { STATUS_LABELS, statusTone } from "~/lib/asset-status";
 import { Badge, LinkButton, PageHeader } from "~/components/ui";
 
 export async function loader({ request, context, params }: Route.LoaderArgs) {
@@ -69,12 +70,6 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   return { asset, records, files, readings, avg3, avg12 };
 }
 
-function statusTone(status: string) {
-  if (status === "active") return "green" as const;
-  if (status === "sold") return "blue" as const;
-  return "neutral" as const;
-}
-
 function registrationBadge(expiresOn: string | null) {
   if (!expiresOn) return null;
   const expires = new Date(expiresOn);
@@ -106,7 +101,7 @@ export default function AssetDetail({ loaderData }: Route.ComponentProps) {
           .filter(Boolean)
           .join(" · ")}
         actions={
-          asset.status === "active" ? (
+          asset.status !== "sold" && asset.status !== "retired" ? (
             <>
               <LinkButton
                 variant="secondary"
@@ -136,7 +131,9 @@ export default function AssetDetail({ loaderData }: Route.ComponentProps) {
 
       <section className="rounded-lg border border-neutral-200 bg-white p-5">
         <div className="flex flex-wrap items-center gap-3">
-          <Badge tone={statusTone(asset.status)}>{asset.status}</Badge>
+          <Badge tone={statusTone(asset.status)}>
+            {STATUS_LABELS[asset.status] ?? asset.status}
+          </Badge>
           {asset.currentMileage != null && (
             <span className="text-sm text-neutral-600">
               {asset.currentMileage.toLocaleString()} mi
@@ -178,7 +175,7 @@ export default function AssetDetail({ loaderData }: Route.ComponentProps) {
       <section>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Mileage</h2>
-          {asset.status === "active" && (
+          {asset.status !== "sold" && asset.status !== "retired" && (
             <LinkButton
               variant="secondary"
               href={`/assets/${asset.id}/readings/new`}
@@ -245,7 +242,7 @@ export default function AssetDetail({ loaderData }: Route.ComponentProps) {
       <section>
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Service history</h2>
-          {asset.status === "active" && (
+          {asset.status !== "sold" && asset.status !== "retired" && (
             <LinkButton
               variant="secondary"
               href={`/assets/${asset.id}/maintenance/new`}

@@ -89,7 +89,14 @@ export const assetKinds = [
   "equipment",
   "other",
 ] as const;
-export const assetStatuses = ["active", "sold", "retired"] as const;
+export const assetStatuses = [
+  "active",
+  "offsite_repair",
+  "broken",
+  "dead",
+  "sold",
+  "retired",
+] as const;
 
 export const assets = sqliteTable("assets", {
   id: integer("id").primaryKey({ autoIncrement: true }),

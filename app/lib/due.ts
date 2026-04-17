@@ -1,6 +1,7 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import type { DB } from "./db.server";
 import { assets, maintenanceRecords } from "~/db/schema";
+import { IN_FLEET_STATUSES } from "./asset-status";
 
 /**
  * Shared "due soon" logic. Kept as pure functions where possible so
@@ -48,7 +49,7 @@ export async function getDueSoonAssets(
   const activeAssets = await db
     .select()
     .from(assets)
-    .where(eq(assets.status, "active"));
+    .where(inArray(assets.status, IN_FLEET_STATUSES));
 
   const items: DueItem[] = [];
   const nowIso = now.toISOString();

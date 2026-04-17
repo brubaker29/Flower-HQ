@@ -1,10 +1,13 @@
-import { Link } from "react-router";
+import { Link, useFetcher } from "react-router";
 import { asc, eq } from "drizzle-orm";
+import { z } from "zod";
 import type { Route } from "./+types/assets._index";
+import { requireUser } from "~/lib/auth.server";
 import { getDb } from "~/lib/db.server";
-import { assets, locations } from "~/db/schema";
-import { Badge, LinkButton } from "~/components/ui";
+import { assets, assetStatuses, locations } from "~/db/schema";
+import { LinkButton, Badge } from "~/components/ui";
 import { getDueSoonAssets } from "~/lib/due";
+import { STATUS_LABELS, statusTone } from "~/lib/asset-status";
 
 export async function loader({ context }: Route.LoaderArgs) {
   const db = getDb(context.cloudflare.env);
@@ -27,10 +30,25 @@ export async function loader({ context }: Route.LoaderArgs) {
   return { assets: rows, dueSoon };
 }
 
-function statusTone(status: string) {
-  if (status === "active") return "green" as const;
-  if (status === "sold") return "blue" as const;
-  return "neutral" as const;
+const StatusSchema = z.object({
+  id: z.coerce.number().int().min(1),
+  status: z.enum(assetStatuses),
+});
+
+export async function action({ request, context }: Route.ActionArgs) {
+  await requireUser(request, context.cloudflare.env);
+  const form = await request.formData();
+  const parsed = StatusSchema.safeParse({
+    id: form.get("id"),
+    status: form.get("status"),
+  });
+  if (!parsed.success) return { error: "Invalid" };
+  const db = getDb(context.cloudflare.env);
+  await db
+    .update(assets)
+    .set({ status: parsed.data.status, updatedAt: new Date().toISOString() })
+    .where(eq(assets.id, parsed.data.id));
+  return { ok: true };
 }
 
 const LOCATION_COLORS: Record<string, string> = {
@@ -56,6 +74,54 @@ function LocationBadge({ name }: { name: string | null }) {
     >
       {name}
     </span>
+  );
+}
+
+const STATUS_SELECT_CLASSES: Record<string, string> = {
+  green:
+    "bg-green-50 text-green-800 border-green-200 hover:bg-green-100 focus:ring-green-300",
+  amber:
+    "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100 focus:ring-amber-300",
+  red: "bg-red-50 text-red-800 border-red-200 hover:bg-red-100 focus:ring-red-300",
+  blue: "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100 focus:ring-blue-300",
+  neutral:
+    "bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100 focus:ring-neutral-300",
+};
+
+function StatusSelect({
+  id,
+  current,
+}: {
+  id: number;
+  current: string;
+}) {
+  const fetcher = useFetcher();
+  // Optimistic — while the fetcher is submitting, render the pending
+  // status so the pill changes color immediately.
+  const pending = fetcher.formData?.get("status");
+  const value = typeof pending === "string" ? pending : current;
+  const tone = statusTone(value);
+  const cls = STATUS_SELECT_CLASSES[tone];
+
+  return (
+    <fetcher.Form method="post" action=".">
+      <input type="hidden" name="id" value={id} />
+      <select
+        name="status"
+        defaultValue={value}
+        onChange={(e) =>
+          fetcher.submit(e.currentTarget.form, { method: "post" })
+        }
+        disabled={fetcher.state !== "idle"}
+        className={`cursor-pointer rounded-md border px-2 py-1 text-xs font-medium transition focus:outline-none focus:ring-2 disabled:opacity-60 ${cls}`}
+      >
+        {assetStatuses.map((s) => (
+          <option key={s} value={s}>
+            {STATUS_LABELS[s]}
+          </option>
+        ))}
+      </select>
+    </fetcher.Form>
   );
 }
 
@@ -133,7 +199,7 @@ export default function AssetsIndex({ loaderData }: Route.ComponentProps) {
                     <LocationBadge name={a.locationName} />
                   </td>
                   <td className="px-4 py-2">
-                    <Badge tone={statusTone(a.status)}>{a.status}</Badge>
+                    <StatusSelect id={a.id} current={a.status} />
                   </td>
                   <td className="px-4 py-2 text-neutral-700">
                     {a.plate ?? a.identifier ?? "—"}
