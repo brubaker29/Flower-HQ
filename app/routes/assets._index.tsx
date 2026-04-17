@@ -1,11 +1,10 @@
 import { Link } from "react-router";
-import { desc, eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import type { Route } from "./+types/assets._index";
 import { getDb } from "~/lib/db.server";
 import { assets, locations } from "~/db/schema";
 import { Badge, LinkButton } from "~/components/ui";
 import { getDueSoonAssets } from "~/lib/due";
-import { formatMoney } from "~/lib/money";
 
 export async function loader({ context }: Route.LoaderArgs) {
   const db = getDb(context.cloudflare.env);
@@ -23,7 +22,7 @@ export async function loader({ context }: Route.LoaderArgs) {
     })
     .from(assets)
     .leftJoin(locations, eq(locations.id, assets.locationId))
-    .orderBy(desc(assets.createdAt));
+    .orderBy(asc(locations.name), asc(assets.name));
   const dueSoon = await getDueSoonAssets(db);
   return { assets: rows, dueSoon };
 }
@@ -32,6 +31,32 @@ function statusTone(status: string) {
   if (status === "active") return "green" as const;
   if (status === "sold") return "blue" as const;
   return "neutral" as const;
+}
+
+const LOCATION_COLORS: Record<string, string> = {
+  Whitehall: "bg-blue-100 text-blue-800",
+  Columbus: "bg-purple-100 text-purple-800",
+  Reynoldsburg: "bg-teal-100 text-teal-800",
+  Botanica: "bg-pink-100 text-pink-800",
+};
+const DEFAULT_LOCATION_COLOR = "bg-neutral-100 text-neutral-700";
+
+function LocationBadge({ name }: { name: string | null }) {
+  if (!name) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-neutral-50 px-2 py-0.5 text-xs text-neutral-400">
+        unassigned
+      </span>
+    );
+  }
+  const color = LOCATION_COLORS[name] ?? DEFAULT_LOCATION_COLOR;
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${color}`}
+    >
+      {name}
+    </span>
+  );
 }
 
 export default function AssetsIndex({ loaderData }: Route.ComponentProps) {
@@ -104,8 +129,8 @@ export default function AssetsIndex({ loaderData }: Route.ComponentProps) {
                   <td className="px-4 py-2 capitalize text-neutral-700">
                     {a.kind}
                   </td>
-                  <td className="px-4 py-2 text-neutral-700">
-                    {a.locationName ?? "—"}
+                  <td className="px-4 py-2">
+                    <LocationBadge name={a.locationName} />
                   </td>
                   <td className="px-4 py-2">
                     <Badge tone={statusTone(a.status)}>{a.status}</Badge>
