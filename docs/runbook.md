@@ -64,7 +64,47 @@ Push a commit to `main` (or merge a PR into `main`). The workflow will:
 Check the run under the **Actions** tab. On success the workflow logs
 will include the `*.workers.dev` URL the Worker was deployed to.
 
-## 3. Protect the Worker with Cloudflare Access
+## 3. Turn on email-PIN auth (Resend)
+
+Auth is **off** until you set `SESSION_SECRET` on the Worker. Until
+then every request is treated as `ross@thinkrapid.com` so the app is
+usable during initial setup. Once you set the three secrets below,
+the app starts requiring sign-in.
+
+### Sign up for Resend
+1. Go to https://resend.com → Sign up (free tier covers 3000 emails/mo).
+2. Create an API key under **API Keys → Create API Key**. Copy it.
+3. While testing, you can send from `onboarding@resend.dev` (Resend's
+   shared sender) with no domain setup. Real-world sending requires
+   verifying a domain under **Domains → Add Domain**, but you can do
+   that later.
+
+### Set the three Worker secrets
+From the Cloudflare dashboard → **Workers & Pages → flower-hq →
+Settings → Variables and Secrets → Add**:
+
+| Name | Value |
+|------|-------|
+| `SESSION_SECRET` | Any long random string, e.g. `openssl rand -hex 32` |
+| `RESEND_API_KEY` | The key from Resend |
+| `FROM_EMAIL` | `onboarding@resend.dev` for testing, or `Flower HQ <login@yourdomain.com>` once your domain is verified |
+
+Click **Deploy** at the top of the Variables section to push them
+live. No code change needed.
+
+### First sign in
+1. Visit `/admin/users` while still in open mode (or any page) — your
+   email `ross@thinkrapid.com` is already in the users table.
+2. Add any other users you want to allow.
+3. Visit `/login`, enter your email. Resend delivers the PIN.
+4. Enter the PIN. You're in. The session cookie is good for 30 days.
+
+If `RESEND_API_KEY` is unset, login still works in a debug mode — the
+PIN is logged to the Worker console (visible in **Workers & Pages →
+flower-hq → Logs**) instead of being emailed. Useful if you want to
+test the flow before signing up for Resend.
+
+## 4. (Optional) Protect the Worker with Cloudflare Access
 
 1. In the Cloudflare dashboard, go to **Zero Trust → Access → Applications
    → Add an application → Self-hosted**.

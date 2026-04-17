@@ -12,10 +12,36 @@ export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   email: text("email").notNull().unique(),
   name: text("name"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),
 });
+
+/**
+ * Short-lived 6-digit PINs for email-based login. Created when a user
+ * submits the /login form, hashed (sha-256) so the raw value isn't
+ * stored, expires after 10 minutes, single-use (`used_at` set on
+ * successful verify).
+ */
+export const loginPins = sqliteTable(
+  "login_pins",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    pinHash: text("pin_hash").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    usedAt: text("used_at"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (t) => ({
+    userIdx: index("login_pins_user_idx").on(t.userId),
+  }),
+);
 
 export const vendors = sqliteTable("vendors", {
   id: integer("id").primaryKey({ autoIncrement: true }),

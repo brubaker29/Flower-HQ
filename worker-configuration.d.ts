@@ -7,6 +7,13 @@ interface Env {
   DB: D1Database;
   FILES: R2Bucket;
   ASSETS: Fetcher;
+  // Auth — when SESSION_SECRET is unset, auth is bypassed and every
+  // request runs as ross@thinkrapid.com (useful for first-deploy
+  // setup). Set all three to enable email-PIN sign-in.
+  SESSION_SECRET?: string;
+  RESEND_API_KEY?: string;
+  FROM_EMAIL?: string;
+  // Legacy CF Access secrets — no longer used.
   CF_ACCESS_TEAM_DOMAIN?: string;
   CF_ACCESS_AUD?: string;
 }
