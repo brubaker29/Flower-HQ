@@ -31,7 +31,7 @@ export async function loader({ context }: Route.LoaderArgs) {
   const withAvg = await Promise.all(
     rows.map(async (r) => ({
       ...r,
-      avgMonth: await avgMilesPerMonth(db, r.id, 90),
+      avgMonth: await avgMilesPerMonth(db, r.id, 365),
     })),
   );
 
