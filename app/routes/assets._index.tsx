@@ -8,6 +8,7 @@ import { assets, assetStatuses, locations } from "~/db/schema";
 import { LinkButton, Badge } from "~/components/ui";
 import { getDueSoonAssets } from "~/lib/due";
 import { STATUS_LABELS, statusTone } from "~/lib/asset-status";
+import { avgMilesPerMonth } from "~/lib/mileage";
 
 export async function loader({ context }: Route.LoaderArgs) {
   const db = getDb(context.cloudflare.env);
@@ -26,8 +27,16 @@ export async function loader({ context }: Route.LoaderArgs) {
     .from(assets)
     .leftJoin(locations, eq(locations.id, assets.locationId))
     .orderBy(asc(locations.name), asc(assets.name));
+
+  const withAvg = await Promise.all(
+    rows.map(async (r) => ({
+      ...r,
+      avgMonth: await avgMilesPerMonth(db, r.id, 90),
+    })),
+  );
+
   const dueSoon = await getDueSoonAssets(db);
-  return { assets: rows, dueSoon };
+  return { assets: withAvg, dueSoon };
 }
 
 const StatusSchema = z.object({
@@ -178,6 +187,7 @@ export default function AssetsIndex({ loaderData }: Route.ComponentProps) {
                 <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">Plate</th>
                 <th className="px-4 py-2">Mileage</th>
+                <th className="px-4 py-2">Avg/mo</th>
                 <th className="px-4 py-2">Reg. expires</th>
               </tr>
             </thead>
@@ -207,6 +217,11 @@ export default function AssetsIndex({ loaderData }: Route.ComponentProps) {
                   <td className="px-4 py-2 text-neutral-700">
                     {a.currentMileage != null
                       ? a.currentMileage.toLocaleString()
+                      : "—"}
+                  </td>
+                  <td className="px-4 py-2 text-neutral-700">
+                    {a.avgMonth != null
+                      ? `${a.avgMonth.toLocaleString()}`
                       : "—"}
                   </td>
                   <td className="px-4 py-2 text-neutral-700">
