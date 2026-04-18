@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Form, Link } from "react-router";
 import { and, desc, eq } from "drizzle-orm";
 import type { Route } from "./+types/assets.$id";
 import { requireUser } from "~/lib/auth.server";
@@ -8,6 +8,7 @@ import {
   attachments,
   locations,
   maintenanceRecords,
+  mileageReadings,
   vendors,
 } from "~/db/schema";
 import { formatMoney } from "~/lib/money";
@@ -68,6 +69,52 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
   ]);
 
   return { asset, records, files, readings, avg3, avg12 };
+}
+
+export async function action({ request, context, params }: Route.ActionArgs) {
+  await requireUser(request, context.cloudflare.env);
+  const id = Number(params.id);
+  if (!Number.isFinite(id)) throw new Response("Not found", { status: 404 });
+  const form = await request.formData();
+  const intent = String(form.get("intent") || "");
+  const db = getDb(context.cloudflare.env);
+
+  if (intent === "delete_reading") {
+    const readingId = Number(form.get("reading_id"));
+    if (!Number.isFinite(readingId)) return { error: "Missing reading id" };
+
+    // Delete the reading, scoped to this asset so the form can't touch
+    // readings on another van.
+    await db
+      .delete(mileageReadings)
+      .where(
+        and(
+          eq(mileageReadings.id, readingId),
+          eq(mileageReadings.assetId, id),
+        ),
+      );
+
+    // Rebuild the cached current_mileage to the highest remaining
+    // reading (or null if the last one was just deleted).
+    const remaining = await db
+      .select({ mileage: mileageReadings.mileage })
+      .from(mileageReadings)
+      .where(eq(mileageReadings.assetId, id))
+      .orderBy(desc(mileageReadings.mileage))
+      .limit(1);
+
+    await db
+      .update(assets)
+      .set({
+        currentMileage: remaining[0]?.mileage ?? null,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(assets.id, id));
+
+    return null;
+  }
+
+  return null;
 }
 
 function registrationBadge(expiresOn: string | null) {
@@ -211,11 +258,12 @@ export default function AssetDetail({ loaderData }: Route.ComponentProps) {
                   <th className="px-4 py-2">Mileage</th>
                   <th className="px-4 py-2">Source</th>
                   <th className="px-4 py-2">Note</th>
+                  <th className="px-4 py-2"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
                 {readings.slice(0, 20).map((r) => (
-                  <tr key={r.id}>
+                  <tr key={r.id} className="group">
                     <td className="px-4 py-2">{r.readOn}</td>
                     <td className="px-4 py-2 font-medium">
                       {r.mileage.toLocaleString()}
@@ -224,7 +272,34 @@ export default function AssetDetail({ loaderData }: Route.ComponentProps) {
                       {r.source}
                     </td>
                     <td className="px-4 py-2 text-neutral-600">
-                      {r.note ?? "—"}
+                      {r.note ?? "\u2014"}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <Form
+                        method="post"
+                        onSubmit={(e) => {
+                          if (
+                            !confirm(
+                              `Delete reading of ${r.mileage.toLocaleString()} mi on ${r.readOn}?`,
+                            )
+                          ) {
+                            e.preventDefault();
+                          }
+                        }}
+                      >
+                        <input
+                          type="hidden"
+                          name="intent"
+                          value="delete_reading"
+                        />
+                        <input type="hidden" name="reading_id" value={r.id} />
+                        <button
+                          type="submit"
+                          className="text-xs text-neutral-400 opacity-0 transition hover:text-red-600 group-hover:opacity-100"
+                        >
+                          delete
+                        </button>
+                      </Form>
                     </td>
                   </tr>
                 ))}

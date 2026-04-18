@@ -78,6 +78,16 @@ flower-hq/
   `npm run db:generate` to produce a new migration in
   `app/db/migrations/`. The initial `0000_initial.sql` is hand-written to
   bootstrap before drizzle-kit is installed.
+- **Never `DROP TABLE` a table that has child rows via FK.** SQLite
+  can't `ALTER TABLE` to drop CHECK constraints, so the legacy
+  migrations 0004 and 0006 rebuild `assets` via `CREATE TABLE
+  assets_new; INSERT ... SELECT; DROP TABLE assets; ALTER RENAME`.
+  Running that against D1 with foreign keys enabled wipes every
+  child row in `mileage_readings`, `maintenance_records`, and
+  `attachments` via cascade. If you ever need to rebuild a table
+  again, wrap the migration in `PRAGMA foreign_keys = OFF;` … `PRAGMA
+  foreign_keys = ON;` so cascade doesn't fire, and verify row counts
+  in the child tables after.
 - **Path alias.** `~/*` → `./app/*`. Use `import { ... } from "~/lib/..."`.
 
 ## Running it
