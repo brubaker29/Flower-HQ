@@ -1,25 +1,25 @@
 import { NavLink, Outlet } from "react-router";
-import type { Route } from "./+types/assets";
+import type { Route } from "./+types/employees";
 import { requireSection } from "~/lib/auth.server";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
-  await requireSection(request, context.cloudflare.env, "assets");
+  await requireSection(request, context.cloudflare.env, "employees");
   return null;
 }
 
-export default function AssetsLayout() {
+export default function EmployeesLayout() {
   return (
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Asset Tracking</h1>
+          <h1 className="text-2xl font-semibold">Employees</h1>
           <p className="text-sm text-neutral-600">
-            Vans, trailers, and equipment
+            Team directory and app access
           </p>
         </div>
         <nav className="flex gap-2 text-sm">
-          <SubNav to="." end label="All assets" />
-          <SubNav to="new" label="Add asset" />
+          <SubNav to="." end label="Directory" />
+          <SubNav to="new" label="Add employee" />
         </nav>
       </header>
       <Outlet />

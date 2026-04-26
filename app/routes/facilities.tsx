@@ -1,9 +1,9 @@
 import { NavLink, Outlet } from "react-router";
 import type { Route } from "./+types/facilities";
-import { requireUser } from "~/lib/auth.server";
+import { requireSection } from "~/lib/auth.server";
 
 export async function loader({ request, context }: Route.LoaderArgs) {
-  await requireUser(request, context.cloudflare.env);
+  await requireSection(request, context.cloudflare.env, "facilities");
   return null;
 }
 

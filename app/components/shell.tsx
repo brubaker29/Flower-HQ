@@ -1,14 +1,25 @@
 import { Form, NavLink } from "react-router";
+import { canAccess, type Section } from "~/lib/permissions";
 
-const navItems = [
+interface NavItem {
+  to: string;
+  label: string;
+  end?: boolean;
+  section?: Section;
+}
+
+const navItems: NavItem[] = [
   { to: "/", label: "Dashboard", end: true },
-  { to: "/assets", label: "Asset Tracking" },
-  { to: "/facilities", label: "Facilities" },
+  { to: "/assets", label: "Assets", section: "assets" },
+  { to: "/facilities", label: "Facilities", section: "facilities" },
+  { to: "/employees", label: "Employees", section: "employees" },
 ];
 
 export interface ShellUser {
   email: string;
   name: string | null;
+  role?: string;
+  sections?: string | null;
 }
 
 export function Shell({
@@ -18,6 +29,21 @@ export function Shell({
   children: React.ReactNode;
   user?: ShellUser | null;
 }) {
+  const visibleNavItems = navItems.filter((item) => {
+    if (!item.section) return true;
+    if (!user) return true;
+    return canAccess(
+      {
+        id: 0,
+        email: user.email,
+        name: user.name,
+        role: user.role ?? "admin",
+        sections: user.sections ?? null,
+      },
+      item.section,
+    );
+  });
+
   return (
     <div className="min-h-screen">
       <header className="border-b border-neutral-200 bg-white">
@@ -29,7 +55,7 @@ export function Shell({
             </span>
           </div>
           <nav className="flex flex-1 justify-center gap-1">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -49,18 +75,9 @@ export function Shell({
           </nav>
           {user ? (
             <div className="flex items-center gap-3 text-sm">
-              <NavLink
-                to="/admin/users"
-                className={({ isActive }) =>
-                  [
-                    "text-neutral-600 hover:text-neutral-900",
-                    isActive ? "text-neutral-900" : "",
-                  ].join(" ")
-                }
-                title={user.email}
-              >
+              <span className="text-neutral-600" title={user.email}>
                 {user.name ?? user.email}
-              </NavLink>
+              </span>
               <Form method="post" action="/logout">
                 <button
                   type="submit"

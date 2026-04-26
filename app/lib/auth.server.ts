@@ -3,11 +3,30 @@ import { redirect } from "react-router";
 import { users } from "~/db/schema";
 import { getDb, type DB } from "./db.server";
 import { getSession } from "./session.server";
+import { canAccess, type Section } from "./permissions";
 
 export interface SessionUser {
   id: number;
   email: string;
   name: string | null;
+  role: string;
+  sections: string | null;
+}
+
+function toSessionUser(u: {
+  id: number;
+  email: string;
+  name: string | null;
+  role: string;
+  sections: string | null;
+}): SessionUser {
+  return {
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    role: u.role,
+    sections: u.sections,
+  };
 }
 
 async function upsertUser(
@@ -21,35 +40,15 @@ async function upsertUser(
     .where(eq(users.email, email))
     .limit(1);
   if (existing.length > 0) {
-    return {
-      id: existing[0].id,
-      email: existing[0].email,
-      name: existing[0].name,
-    };
+    return toSessionUser(existing[0]);
   }
   const inserted = await db
     .insert(users)
-    .values({ email, name })
+    .values({ email, name, role: "admin" })
     .returning();
-  return {
-    id: inserted[0].id,
-    email: inserted[0].email,
-    name: inserted[0].name,
-  };
+  return toSessionUser(inserted[0]);
 }
 
-/**
- * Returns the currently signed-in user, or throws a redirect to /login.
- *
- * Auth has two modes:
- *   - SESSION_SECRET unset: open mode — every request is treated as a
- *     hardcoded admin user (ross@thinkrapid.com). Useful for first
- *     deploy / setup. As soon as you set SESSION_SECRET, real auth
- *     turns on.
- *   - SESSION_SECRET set: session-cookie mode — reads userId from the
- *     signed cookie, looks up the user, redirects to /login if missing
- *     or disabled.
- */
 export async function requireUser(
   request: Request,
   env: Env,
@@ -75,7 +74,21 @@ export async function requireUser(
     throw redirectToLogin(request);
   }
 
-  return { id: user.id, email: user.email, name: user.name };
+  return toSessionUser(user);
+}
+
+export async function requireSection(
+  request: Request,
+  env: Env,
+  section: Section,
+): Promise<SessionUser> {
+  const user = await requireUser(request, env);
+  if (!canAccess(user, section)) {
+    throw new Response("You don't have access to this section.", {
+      status: 403,
+    });
+  }
+  return user;
 }
 
 function redirectToLogin(request: Request): Response {

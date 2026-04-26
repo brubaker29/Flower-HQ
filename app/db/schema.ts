@@ -8,15 +8,53 @@ import {
 
 // ---------- Shared ----------
 
+export const userRoles = ["admin", "employee"] as const;
+
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   email: text("email").notNull().unique(),
   name: text("name"),
+  role: text("role", { enum: userRoles }).notNull().default("employee"),
+  sections: text("sections"),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  employeeId: integer("employee_id").references(() => employees.id, {
+    onDelete: "set null",
+  }),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),
 });
+
+export const employees = sqliteTable(
+  "employees",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    firstName: text("first_name").notNull(),
+    lastName: text("last_name").notNull(),
+    email: text("email"),
+    phone: text("phone"),
+    position: text("position"),
+    locationId: integer("location_id").references(() => locations.id, {
+      onDelete: "set null",
+    }),
+    hireDate: text("hire_date"),
+    terminationDate: text("termination_date"),
+    isActive: integer("is_active", { mode: "boolean" })
+      .notNull()
+      .default(true),
+    notes: text("notes"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (t) => ({
+    nameIdx: index("employees_name_idx").on(t.lastName, t.firstName),
+    locationIdx: index("employees_location_idx").on(t.locationId),
+  }),
+);
 
 /**
  * Short-lived 6-digit PINs for email-based login. Created when a user

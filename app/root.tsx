@@ -41,7 +41,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env;
   if (!env.SESSION_SECRET) {
     return {
-      user: { email: "ross@thinkrapid.com", name: "Ross" },
+      user: { email: "ross@thinkrapid.com", name: "Ross", role: "admin", sections: null },
     };
   }
   const session = await getSession(request, env);
@@ -49,12 +49,12 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   if (typeof userId !== "number") return { user: null };
   const db = getDb(env);
   const [u] = await db
-    .select({ email: users.email, name: users.name, isActive: users.isActive })
+    .select({ email: users.email, name: users.name, role: users.role, sections: users.sections, isActive: users.isActive })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
   if (!u || !u.isActive) return { user: null };
-  return { user: { email: u.email, name: u.name } };
+  return { user: { email: u.email, name: u.name, role: u.role, sections: u.sections } };
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -76,7 +76,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  const data = useLoaderData() as { user: { email: string; name: string | null } | null };
+  const data = useLoaderData() as { user: { email: string; name: string | null; role?: string; sections?: string | null } | null };
   const location = useLocation();
   const isAuthRoute =
     location.pathname === "/login" ||
