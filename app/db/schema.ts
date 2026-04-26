@@ -243,6 +243,9 @@ export const reimbursements = sqliteTable(
     ratePerMile: real("rate_per_mile"),
     amountCents: integer("amount_cents").notNull(),
     notes: text("notes"),
+    submittedToGusto: integer("submitted_to_gusto", { mode: "boolean" })
+      .notNull()
+      .default(false),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(current_timestamp)`),

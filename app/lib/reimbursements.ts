@@ -18,21 +18,41 @@ export const CATEGORY_LABELS: Record<ReimbursementCategory, string> = {
 };
 
 /**
- * Bi-weekly pay period calculation. Given any date, returns the
- * [start, end] of the 2-week period it falls in. Periods are anchored
- * to PAY_PERIOD_ANCHOR and repeat every 14 days forward and backward.
+ * Bi-weekly pay period calculation aligned to the Gusto schedule.
+ * Periods are Sun–Sat, 14 days, anchored to 04/12/2026.
+ *
+ * Payday = period end + 6 days (Friday after the period closes)
+ * Run payroll by = period end + 4 days (Wednesday)
  */
-const PAY_PERIOD_ANCHOR = new Date("2026-01-05"); // a Monday
-const PERIOD_MS = 14 * 24 * 60 * 60 * 1000;
+const PAY_PERIOD_ANCHOR = new Date("2026-04-12"); // Sunday
+const PERIOD_DAYS = 14;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const PERIOD_MS = PERIOD_DAYS * DAY_MS;
 
-export function getPayPeriod(date: Date): { start: string; end: string } {
+export interface PayPeriod {
+  start: string;
+  end: string;
+  payday: string;
+  runPayrollBy: string;
+}
+
+function addDays(iso: string, days: number): string {
+  const d = new Date(iso);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+export function getPayPeriod(date: Date): PayPeriod {
   const diff = date.getTime() - PAY_PERIOD_ANCHOR.getTime();
   const periodIndex = Math.floor(diff / PERIOD_MS);
   const startMs = PAY_PERIOD_ANCHOR.getTime() + periodIndex * PERIOD_MS;
-  const endMs = startMs + PERIOD_MS - 1;
+  const start = new Date(startMs).toISOString().slice(0, 10);
+  const end = addDays(start, PERIOD_DAYS - 1);
   return {
-    start: new Date(startMs).toISOString().slice(0, 10),
-    end: new Date(endMs).toISOString().slice(0, 10),
+    start,
+    end,
+    payday: addDays(end, 6),
+    runPayrollBy: addDays(end, 4),
   };
 }
 
@@ -40,6 +60,6 @@ export function formatPayPeriod(start: string, end: string): string {
   return `${start} — ${end}`;
 }
 
-export function getCurrentPayPeriod(): { start: string; end: string } {
+export function getCurrentPayPeriod(): PayPeriod {
   return getPayPeriod(new Date());
 }
