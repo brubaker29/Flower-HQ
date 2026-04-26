@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   index,
   integer,
+  real,
   sqliteTable,
   text,
 } from "drizzle-orm/sqlite-core";
@@ -222,6 +223,36 @@ export const mileageReadings = sqliteTable(
   (t) => ({
     assetIdx: index("mileage_readings_asset_idx").on(t.assetId),
     dateIdx: index("mileage_readings_date_idx").on(t.assetId, t.readOn),
+  }),
+);
+
+export const reimbursementCategories = ["mileage", "travel"] as const;
+
+export const reimbursements = sqliteTable(
+  "reimbursements",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    employeeId: integer("employee_id")
+      .notNull()
+      .references(() => employees.id),
+    submittedBy: integer("submitted_by").references(() => users.id),
+    category: text("category", { enum: reimbursementCategories }).notNull(),
+    description: text("description"),
+    expenseDate: text("expense_date").notNull(),
+    miles: real("miles"),
+    ratePerMile: real("rate_per_mile"),
+    amountCents: integer("amount_cents").notNull(),
+    notes: text("notes"),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (t) => ({
+    employeeIdx: index("reimbursements_employee_idx").on(t.employeeId),
+    dateIdx: index("reimbursements_date_idx").on(t.expenseDate),
   }),
 );
 

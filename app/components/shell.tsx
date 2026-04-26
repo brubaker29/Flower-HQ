@@ -13,6 +13,7 @@ const navItems: NavItem[] = [
   { to: "/assets", label: "Assets", section: "assets" },
   { to: "/facilities", label: "Facilities", section: "facilities" },
   { to: "/employees", label: "Employees", section: "employees" },
+  { to: "/reimbursements", label: "Reimburse", section: "reimbursements" },
 ];
 
 export interface ShellUser {

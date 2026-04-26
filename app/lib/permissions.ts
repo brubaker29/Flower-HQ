@@ -4,6 +4,7 @@ export const ALL_SECTIONS = [
   "assets",
   "facilities",
   "employees",
+  "reimbursements",
 ] as const;
 
 export type Section = (typeof ALL_SECTIONS)[number];
@@ -12,6 +13,7 @@ export const SECTION_LABELS: Record<Section, string> = {
   assets: "Asset Tracking",
   facilities: "Facilities",
   employees: "Employees",
+  reimbursements: "Reimbursements",
 };
 
 export function userSections(user: SessionUser): Section[] {
