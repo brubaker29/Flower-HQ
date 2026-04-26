@@ -11,7 +11,7 @@ interface Env {
   // request runs as ross@thinkrapid.com (useful for first-deploy
   // setup). Set all three to enable email-PIN sign-in.
   SESSION_SECRET?: string;
-  RESEND_API_KEY?: string;
+  ELASTIC_EMAIL_API_KEY?: string;
   FROM_EMAIL?: string;
   // Legacy CF Access secrets — no longer used.
   CF_ACCESS_TEAM_DOMAIN?: string;
