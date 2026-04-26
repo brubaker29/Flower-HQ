@@ -1,7 +1,7 @@
 import { Form } from "react-router";
 import { eq } from "drizzle-orm";
 import type { Route } from "./+types/employees.$id";
-import { requireSection } from "~/lib/auth.server";
+import { requireAdmin, requireSection } from "~/lib/auth.server";
 import { getDb } from "~/lib/db.server";
 import { employees, locations, users } from "~/db/schema";
 import { createPin } from "~/lib/pin.server";
@@ -38,14 +38,22 @@ export async function loader({ request, context, params }: Route.LoaderArgs) {
 }
 
 export async function action({ request, context, params }: Route.ActionArgs) {
-  await requireSection(request, context.cloudflare.env, "employees");
+  const env = context.cloudflare.env;
+  const form = await request.formData();
+  const intent = String(form.get("intent") || "");
+
+  // Invite, access changes, revoke, terminate all require admin.
+  // Viewing employee details is section-gated ("employees").
+  if (["invite", "update_access", "revoke", "terminate", "reactivate"].includes(intent)) {
+    await requireAdmin(request, env);
+  } else {
+    await requireSection(request, env, "employees");
+  }
+
   const id = Number(params.id);
   if (!Number.isFinite(id)) throw new Response("Not found", { status: 404 });
 
-  const env = context.cloudflare.env;
   const db = getDb(env);
-  const form = await request.formData();
-  const intent = String(form.get("intent") || "");
 
   if (intent === "invite") {
     const [emp] = await db

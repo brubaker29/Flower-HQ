@@ -77,6 +77,17 @@ export async function requireUser(
   return toSessionUser(user);
 }
 
+export async function requireAdmin(
+  request: Request,
+  env: Env,
+): Promise<SessionUser> {
+  const user = await requireUser(request, env);
+  if (user.role !== "admin") {
+    throw new Response("Admin access required.", { status: 403 });
+  }
+  return user;
+}
+
 export async function requireSection(
   request: Request,
   env: Env,

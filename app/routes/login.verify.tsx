@@ -49,8 +49,11 @@ export async function action({ request, context }: Route.ActionArgs) {
     return { error: "Invalid PIN or expired. Try requesting a new one." };
   }
 
-  const ok = await verifyPin(db, user.id, parsed.data.pin);
-  if (!ok) {
+  const result = await verifyPin(db, user.id, parsed.data.pin);
+  if (result === "rate_limited") {
+    return { error: "Too many attempts. Wait 15 minutes, then request a new PIN." };
+  }
+  if (result === "invalid") {
     return { error: "Invalid PIN or expired. Try requesting a new one." };
   }
 

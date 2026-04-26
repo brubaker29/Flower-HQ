@@ -1,8 +1,10 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, count, desc, eq, gte, isNull } from "drizzle-orm";
 import { loginPins } from "~/db/schema";
 import type { DB } from "./db.server";
 
 const PIN_TTL_MINUTES = 10;
+const MAX_VERIFY_ATTEMPTS = 5;
+const RATE_LIMIT_WINDOW_MINUTES = 15;
 
 /** 6-digit PIN as a zero-padded string. */
 export function generatePin(): string {
@@ -54,16 +56,37 @@ export async function createPin(
 
 /**
  * Verify a PIN against the user's most recent unused, unexpired PIN.
- * On success marks the PIN used and returns true. Constant-time-ish
- * (we always hash the candidate even when no PIN exists).
+ * On success marks the PIN used and returns true.
+ *
+ * Rate-limited: after MAX_VERIFY_ATTEMPTS (5) failed attempts within
+ * RATE_LIMIT_WINDOW_MINUTES (15), returns "rate_limited" so the
+ * caller can show a "too many attempts" message.
  */
 export async function verifyPin(
   db: DB,
   userId: number,
   pin: string,
-): Promise<boolean> {
+): Promise<"ok" | "invalid" | "rate_limited"> {
   const candidate = await hashPin(pin);
   const nowIso = new Date().toISOString();
+  const windowStart = new Date(
+    Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
+  ).toISOString();
+
+  // Count recent used PINs (failed or success) to rate-limit.
+  const [{ n: recentAttempts }] = await db
+    .select({ n: count() })
+    .from(loginPins)
+    .where(
+      and(
+        eq(loginPins.userId, userId),
+        gte(loginPins.createdAt, windowStart),
+      ),
+    );
+
+  if (recentAttempts >= MAX_VERIFY_ATTEMPTS) {
+    return "rate_limited";
+  }
 
   const rows = await db
     .select()
@@ -72,15 +95,15 @@ export async function verifyPin(
     .orderBy(desc(loginPins.createdAt))
     .limit(1);
 
-  if (rows.length === 0) return false;
+  if (rows.length === 0) return "invalid";
   const row = rows[0];
-  if (row.expiresAt < nowIso) return false;
-  if (row.pinHash !== candidate) return false;
+  if (row.expiresAt < nowIso) return "invalid";
+  if (row.pinHash !== candidate) return "invalid";
 
   await db
     .update(loginPins)
     .set({ usedAt: nowIso })
     .where(eq(loginPins.id, row.id));
 
-  return true;
+  return "ok";
 }

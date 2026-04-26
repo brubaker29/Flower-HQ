@@ -2,7 +2,7 @@ import { Form } from "react-router";
 import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import type { Route } from "./+types/admin.users";
-import { requireUser } from "~/lib/auth.server";
+import { requireAdmin } from "~/lib/auth.server";
 import { getDb } from "~/lib/db.server";
 import { users } from "~/db/schema";
 import { Badge, Button, Field, Input, PageHeader } from "~/components/ui";
@@ -13,14 +13,14 @@ const Schema = z.object({
 });
 
 export async function loader({ request, context }: Route.LoaderArgs) {
-  await requireUser(request, context.cloudflare.env);
+  await requireAdmin(request, context.cloudflare.env);
   const db = getDb(context.cloudflare.env);
   const rows = await db.select().from(users).orderBy(asc(users.email));
   return { users: rows };
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
-  await requireUser(request, context.cloudflare.env);
+  await requireAdmin(request, context.cloudflare.env);
   const db = getDb(context.cloudflare.env);
   const form = await request.formData();
   const intent = String(form.get("intent") || "add");
