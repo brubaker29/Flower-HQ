@@ -96,6 +96,16 @@ export async function action({ request, context }: Route.ActionArgs) {
   const periodStart = String(form.get("periodStart") || "");
   const periodEnd = String(form.get("periodEnd") || "");
 
+  if (intent === "delete") {
+    const id = Number(form.get("id"));
+    if (Number.isFinite(id)) {
+      await db
+        .delete(reimbursements)
+        .where(eq(reimbursements.id, id));
+    }
+    return null;
+  }
+
   if (!periodStart || !periodEnd) return null;
   const db = getDb(context.cloudflare.env);
 
@@ -180,6 +190,7 @@ export default function ReimbursementsIndex({
                     <th className="px-4 py-2">Miles</th>
                     <th className="px-4 py-2">Amount</th>
                     <th className="px-4 py-2">Gusto</th>
+                    <th className="px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
@@ -224,6 +235,24 @@ export default function ReimbursementsIndex({
                         ) : (
                           <span className="text-xs text-neutral-400">—</span>
                         )}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <Form
+                          method="post"
+                          onSubmit={(e) => {
+                            if (!confirm("Delete this reimbursement?"))
+                              e.preventDefault();
+                          }}
+                        >
+                          <input type="hidden" name="intent" value="delete" />
+                          <input type="hidden" name="id" value={r.id} />
+                          <button
+                            type="submit"
+                            className="text-xs text-neutral-400 hover:text-red-600"
+                          >
+                            delete
+                          </button>
+                        </Form>
                       </td>
                     </tr>
                   ))}
