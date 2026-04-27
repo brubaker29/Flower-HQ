@@ -93,8 +93,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   await requireAdmin(request, context.cloudflare.env);
   const form = await request.formData();
   const intent = String(form.get("intent") || "");
-  const periodStart = String(form.get("periodStart") || "");
-  const periodEnd = String(form.get("periodEnd") || "");
+  const db = getDb(context.cloudflare.env);
 
   if (intent === "delete") {
     const id = Number(form.get("id"));
@@ -106,8 +105,9 @@ export async function action({ request, context }: Route.ActionArgs) {
     return null;
   }
 
+  const periodStart = String(form.get("periodStart") || "");
+  const periodEnd = String(form.get("periodEnd") || "");
   if (!periodStart || !periodEnd) return null;
-  const db = getDb(context.cloudflare.env);
 
   if (intent === "mark_submitted") {
     await db
