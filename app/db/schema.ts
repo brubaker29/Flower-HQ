@@ -373,3 +373,39 @@ export const workOrderEvents = sqliteTable(
     woIdx: index("work_order_events_wo_idx").on(t.workOrderId),
   }),
 );
+
+// ---------- QBO Integration ----------
+
+export const qboTokens = sqliteTable("qbo_tokens", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  realmId: text("realm_id").notNull().unique(),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  accessTokenExpiresAt: text("access_token_expires_at").notNull(),
+  refreshTokenExpiresAt: text("refresh_token_expires_at").notNull(),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+export const qboImportLog = sqliteTable(
+  "qbo_import_log",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    filename: text("filename").notNull(),
+    docNumber: text("doc_number").notNull(),
+    txnDate: text("txn_date").notNull(),
+    lineCount: integer("line_count").notNull(),
+    totalDebits: integer("total_debits_cents").notNull(),
+    status: text("status").notNull(), // posted | skipped | failed
+    qboJeId: text("qbo_je_id"),
+    errorDetail: text("error_detail"),
+    importedBy: integer("imported_by").references(() => users.id),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (t) => ({
+    docIdx: index("qbo_import_log_doc_idx").on(t.docNumber, t.txnDate),
+  }),
+);

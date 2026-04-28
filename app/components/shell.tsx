@@ -14,6 +14,7 @@ const navItems: NavItem[] = [
   { to: "/facilities", label: "Facilities", section: "facilities" },
   { to: "/employees", label: "Employees", section: "employees" },
   { to: "/reimbursements", label: "Reimburse", section: "reimbursements" },
+  { to: "/qbo", label: "QBO" },
 ];
 
 export interface ShellUser {

@@ -13,6 +13,9 @@ interface Env {
   SESSION_SECRET?: string;
   ELASTIC_EMAIL_API_KEY?: string;
   FROM_EMAIL?: string;
+  // QBO OAuth (from developer.intuit.com app)
+  QBO_CLIENT_ID?: string;
+  QBO_CLIENT_SECRET?: string;
   // Legacy CF Access secrets — no longer used.
   CF_ACCESS_TEAM_DOMAIN?: string;
   CF_ACCESS_AUD?: string;
